@@ -1,4 +1,4 @@
-# Peernet Blogs
+# Hugo Novela
 
 A port of [Narative](https://www.narative.co/)'s Gatsby theme [Novela](https://www.narative.co/labs/novela/)
 
@@ -11,6 +11,10 @@ The easiest way to get started is to [import this theme in Forestry CMS](https:/
 <a href="https://app.forestry.io/quick-start?repo=forestryio/novela-hugo-starter&engine=hugo&version=0.81.0">
     <img alt="Import this project into Forestry" src="https://assets.forestry.io/import-to-forestryK.svg" />
 </a>
+
+## Install from the command line
+
+If you don't want to use the [starter](https://github.com/forestryio/novela-hugo-starter), you can start from scratch and just install this theme from the command line.
 
 Create a new Hugo site and initialize your project as a [Hugo module](https://gohugo.io/hugo-modules/use-modules/):
 
