@@ -3,7 +3,7 @@
 # Listen specifies an array of IPs (both IPv4 and IPv6 supported) or hostnames to listen on. To listen on any IPs use IPv4 '0.0.0.0' and IPv6 '::', however for security reasons the IPs should always be specified.
 # Make sure to configure your firewall appropriately!
 Listen:             ["127.0.0.1","::1"]
-Port:               80
+Port:               8090
 
 # SSL configurations. The API will either listen on HTTP or HTTPS depending on this.
 UseSSL:             false
@@ -14,4 +14,10 @@ CertificateKey:     "certificate.key"       # This is the private key.
 LogFile: "Server.log"
 
 # WebFiles is the directory holding all HTML and other files to be served by the server
-WebFiles:           "html"
+WebFiles:           "public"
+
+# Path to the hugp project
+AbsolutePathHugoProject: "/home/akilan/Documents/peernet/blog.peernet.org"
+
+# Private Key path
+PrivateKeyFile: "/home/akilan/.ssh/id_ed25519"

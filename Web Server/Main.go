@@ -9,16 +9,20 @@ Web server for blog.peernet.org.
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/go-git/go-git/v5"
 	"github.com/gorilla/mux"
 	"gopkg.in/yaml.v2"
 )
@@ -38,6 +42,12 @@ var config struct {
 
 	// WebFiles is the directory holding all HTML and other files to be served by the server
 	WebFiles string `yaml:"WebFiles"`
+
+	// Path to the HUGO project
+	AbsolutePathHugoProject string `yaml:"AbsolutePathHugoProject"`
+
+	// private key file path
+	PrivateKeyFile string `yaml:"PrivateKeyFile"`
 }
 
 func init() {
@@ -140,6 +150,73 @@ func HeadersMiddleware(SetHSTS bool) func(http.Handler) http.Handler {
 	})
 }
 
+// ShellToUse source: https://stackoverflow.com/questions/6182369/exec-a-shell-command-in-go
+const ShellToUse = "bash"
+
+func Shellout(command string) (error, string, string) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd := exec.Command(ShellToUse, "-c", command)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	return err, stdout.String(), stderr.String()
+}
+
+// Webhook action to pull latest changes from master repo and generate
+// public files
+func Webhook(res http.ResponseWriter, req *http.Request) {
+
+	// We instantiate a new repository targeting the given path (the .git folder)
+	r, _ := git.PlainOpen(config.AbsolutePathHugoProject)
+
+	// Get the working directory for the repository
+	w, _ := r.Worktree()
+
+	privateKeyFile := config.PrivateKeyFile
+
+	_, err := os.Stat(privateKeyFile)
+	if err != nil {
+		res.Write([]byte(err.Error()))
+		return
+	}
+
+	publicKeys, err := ssh.NewPublicKeysFromFile("git", privateKeyFile, "")
+	if err != nil {
+		res.Write([]byte(err.Error()))
+		//Warning("generate publickeys failed: %s\n", err.Error())
+		return
+	}
+
+	// Pull the latest changes from the origin remote and merge into the current branch
+	err = w.Pull(&git.PullOptions{RemoteName: "origin", Auth: publicKeys})
+	if err != nil {
+		res.Write([]byte(err.Error()))
+		return
+	}
+
+	//CheckIfError(err)
+
+	// Print the latest commit that was just pulled
+	ref, _ := r.Head()
+	r.CommitObject(ref.Hash())
+
+	err, _, stderr := Shellout("hugo --source " + config.AbsolutePathHugoProject)
+	if err != nil {
+		res.Write([]byte(stderr))
+		return
+	}
+
+	err, stddout, stderr := Shellout("cp -r " + config.AbsolutePathHugoProject + "/public" + " .")
+	if err != nil {
+		res.Write([]byte(stderr))
+		return
+	}
+
+	res.Write([]byte(stddout))
+
+}
+
 func main() {
 
 	fileServer := http.FileServer(http.Dir(config.WebFiles))
@@ -147,6 +224,7 @@ func main() {
 	// define the routes where the HTTP API will listen
 	router := mux.NewRouter()
 	router.Use(HeadersMiddleware(config.UseSSL))
+	router.HandleFunc("/webhook", Webhook).Methods("GET")
 	router.PathPrefix("/").Handler(http.StripPrefix("/", disableDirectoryListing(fileServer))).Methods("GET")
 
 	// start the server either with SSL (HTTPS) or without (HTTP)
